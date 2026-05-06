@@ -1,6 +1,6 @@
 # Ayvalık Bank LA-Python
 
-A banking application built as a learning project to demonstrate **Classic 3-Tier Layered Architecture** in **Python 3.12+ / FastAPI / SQLAlchemy 2.0 (async)**. Python counterpart to `AyvalikBankLA1` (Java/Spring Boot) and `AyvalikBankLA-NET` (.NET).
+A banking application built as a learning project to demonstrate **Classic 3-Tier Layered Architecture** in **Python 3.12+ / FastAPI / SQLAlchemy 2.0 (async)**. Python counterpart to `AyvalikBankLA-JAVA` (Java/Spring Boot) and `AyvalikBankLA-NET` (.NET).
 
 ## Tech Stack
 

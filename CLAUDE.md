@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Project
 
-**Ayvalık Bank LA-Python** — Python 3.12+ / FastAPI / SQLAlchemy 2.0 (async) port of `AyvalikBankLA1` (the Java/Spring Boot layered project) and `AyvalikBankLA-NET` (the .NET port). Identical use cases, same 3-tier / anemic-model / fat-service style.
+**Ayvalık Bank LA-Python** — Python 3.12+ / FastAPI / SQLAlchemy 2.0 (async) port of `AyvalikBankLA-JAVA` (the Java/Spring Boot layered project) and `AyvalikBankLA-NET` (the .NET port). Identical use cases, same 3-tier / anemic-model / fat-service style.
 
 ## Commands
 

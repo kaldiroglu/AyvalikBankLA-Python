@@ -1,6 +1,6 @@
 # Architecture — Ayvalık Bank LA-Python
 
-A Python 3.12+ port of `AyvalikBankLA1`, organized as a **Classic 3-Tier Layered Architecture**. Anemic entities, fat services, no repository abstraction.
+A Python 3.12+ port of `AyvalikBankLA-JAVA`, organized as a **Classic 3-Tier Layered Architecture**. Anemic entities, fat services, no repository abstraction.
 
 ---
 

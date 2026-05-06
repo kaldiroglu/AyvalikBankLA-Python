@@ -1,7 +1,7 @@
 [project]
 name = "ayvalikbank-la"
 version = "0.1.0"
-description = "Layered banking application — Python port of AyvalikBankLA1"
+description = "Layered banking application — Python port of AyvalikBankLA-JAVA"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115",
