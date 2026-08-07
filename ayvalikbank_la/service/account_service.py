@@ -141,7 +141,7 @@ class AccountService:
 
         if account.type == AccountType.TIME_DEPOSIT.value:
             if not account.matured:
-                raise InvalidAccountOperationException("Time deposit has not matured")
+                raise AccountNotOperableException("Time deposit has not matured")
         if account.type == AccountType.CHECKING.value:
             floor = -(account.overdraft_limit or Decimal("0"))
             if account.balance - amount < floor:
@@ -271,7 +271,7 @@ class AccountService:
                 "Interest accrual only applies to savings accounts"
             )
         if a.status == AccountStatus.CLOSED.value:
-            raise InvalidAccountOperationException("Cannot accrue interest on a closed account")
+            raise AccountNotOperableException("Cannot accrue interest on a closed account")
         first_of_next_month = date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
         if a.last_accrual_date is not None and first_of_next_month <= a.last_accrual_date:
             raise InvalidAccountOperationException(
@@ -292,16 +292,16 @@ class AccountService:
     async def mature_time_deposit(self, account_id: UUID) -> Transaction:
         a = await self._require_account(account_id)
         if a.type != AccountType.TIME_DEPOSIT.value:
-            raise InvalidAccountOperationException(
+            raise AccountNotOperableException(
                 "Maturity only applies to time deposit accounts"
             )
         if a.status == AccountStatus.CLOSED.value:
-            raise InvalidAccountOperationException("Cannot mature a closed account")
+            raise AccountNotOperableException("Cannot mature a closed account")
         if a.matured:
-            raise InvalidAccountOperationException("Account is already matured")
+            raise AccountNotOperableException("Account is already matured")
         today = datetime.now(timezone.utc).date()
         if today < a.maturity_date:
-            raise InvalidAccountOperationException("Maturity date not yet reached")
+            raise AccountNotOperableException("Maturity date not yet reached")
         months = (a.maturity_date.year - a.opened_on.year) * 12 + (
             a.maturity_date.month - a.opened_on.month
         )
