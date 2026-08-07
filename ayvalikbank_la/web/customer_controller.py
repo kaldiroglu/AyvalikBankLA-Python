@@ -17,7 +17,7 @@ async def change_password(
     customer_id: UUID,
     body: ChangePasswordRequest,
     service: Annotated[CustomerService, Depends(get_customer_service)],
-    _=Depends(require_customer),
+    caller=Depends(require_customer),
 ):
-    await service.change_password(customer_id, body.new_password)
+    await service.change_password(caller.id, customer_id, body.new_password)
     return {"status": "ok"}

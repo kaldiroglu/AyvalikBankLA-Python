@@ -28,3 +28,11 @@ class InvalidAccountOperationException(Exception):
 
 class LimitExceededException(Exception):
     pass
+
+
+class UnauthorizedAccessException(Exception):
+    """The caller may not act on this account or customer record.
+
+    Mirrors AyvalikBankHA-JAVA Refactorings.md entry 3.
+    """
+    pass

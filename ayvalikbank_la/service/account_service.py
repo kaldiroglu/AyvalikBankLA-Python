@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..exception import (
     AccountNotOperableException,
     InsufficientFundsException,
+    UnauthorizedAccessException,
     InvalidAccountOperationException,
     NotFoundException,
 )
@@ -39,12 +40,12 @@ class AccountService:
     # ── opens ────────────────────────────────────────────────────────────
 
     async def create_checking(
-        self, owner_id: UUID, currency: Currency, overdraft_limit: Decimal | None
+        self, caller_id: UUID, currency: Currency, overdraft_limit: Decimal | None
     ) -> Account:
-        await self._require_customer(owner_id)
+        await self._require_customer(caller_id)
         a = Account(
             id=uuid4(),
-            owner_id=owner_id,
+            owner_id=caller_id,
             currency=currency.value,
             balance=Decimal("0"),
             status=AccountStatus.ACTIVE.value,
@@ -58,14 +59,14 @@ class AccountService:
         return a
 
     async def create_savings(
-        self, owner_id: UUID, currency: Currency, annual_interest_rate: Decimal
+        self, caller_id: UUID, currency: Currency, annual_interest_rate: Decimal
     ) -> Account:
-        await self._require_customer(owner_id)
+        await self._require_customer(caller_id)
         if annual_interest_rate < Decimal("0"):
             raise InvalidAccountOperationException("Annual interest rate must be non-negative")
         a = Account(
             id=uuid4(),
-            owner_id=owner_id,
+            owner_id=caller_id,
             currency=currency.value,
             balance=Decimal("0"),
             status=AccountStatus.ACTIVE.value,
@@ -79,13 +80,13 @@ class AccountService:
 
     async def create_time_deposit(
         self,
-        owner_id: UUID,
+        caller_id: UUID,
         currency: Currency,
         principal: Decimal,
         maturity_date: date,
         annual_interest_rate: Decimal,
     ) -> Account:
-        await self._require_customer(owner_id)
+        await self._require_customer(caller_id)
         if principal <= Decimal("0"):
             raise InvalidAccountOperationException("Principal must be positive")
         if annual_interest_rate < Decimal("0"):
@@ -95,7 +96,7 @@ class AccountService:
             raise InvalidAccountOperationException("Maturity date must be after opened-on date")
         a = Account(
             id=uuid4(),
-            owner_id=owner_id,
+            owner_id=caller_id,
             currency=currency.value,
             balance=principal,
             status=AccountStatus.ACTIVE.value,
@@ -112,8 +113,9 @@ class AccountService:
 
     # ── money ops ────────────────────────────────────────────────────────
 
-    async def deposit(self, account_id: UUID, amount: Decimal, currency: Currency) -> Transaction:
+    async def deposit(self, caller_id: UUID, account_id: UUID, amount: Decimal, currency: Currency) -> Transaction:
         account = await self._require_account(account_id)
+        self._require_owner(account, caller_id)
         self._ensure_operable(account)
         self._ensure_same_currency(account, currency)
         if amount <= Decimal("0"):
@@ -127,8 +129,9 @@ class AccountService:
             account.id, TransactionType.DEPOSIT, amount, currency, "Deposit"
         )
 
-    async def withdraw(self, account_id: UUID, amount: Decimal, currency: Currency) -> Transaction:
+    async def withdraw(self, caller_id: UUID, account_id: UUID, amount: Decimal, currency: Currency) -> Transaction:
         account = await self._require_account(account_id)
+        self._require_owner(account, caller_id)
         self._ensure_operable(account)
         self._ensure_same_currency(account, currency)
         if amount <= Decimal("0"):
@@ -156,6 +159,7 @@ class AccountService:
 
     async def transfer(
         self,
+        caller_id: UUID,
         source_id: UUID,
         target_id: UUID,
         amount: Decimal,
@@ -164,6 +168,9 @@ class AccountService:
         if source_id == target_id:
             raise InvalidAccountOperationException("Cannot transfer to the same account")
         source = await self._require_account(source_id)
+        self._require_owner(source, caller_id)
+        # The TARGET is deliberately NOT ownership-checked: sending money to another
+        # customer is the entire point of a transfer.
         target = await self._require_account(target_id)
         self._ensure_operable(source)
         self._ensure_operable(target)
@@ -206,19 +213,21 @@ class AccountService:
 
     # ── reads ────────────────────────────────────────────────────────────
 
-    async def get_balance(self, account_id: UUID) -> tuple[Decimal, Currency]:
+    async def get_balance(self, caller_id: UUID, account_id: UUID) -> tuple[Decimal, Currency]:
         a = await self._require_account(account_id)
+        self._require_owner(a, caller_id)
         return a.balance, Currency(a.currency)
 
-    async def list_accounts(self, customer_id: UUID) -> list[Account]:
+    async def list_accounts(self, caller_id: UUID, customer_id: UUID) -> list[Account]:
+        self._require_self(customer_id, caller_id)
         await self._require_customer(customer_id)
         result = await self._session.execute(
             select(Account).where(Account.owner_id == customer_id)
         )
         return list(result.scalars().all())
 
-    async def get_transactions(self, account_id: UUID) -> list[Transaction]:
-        await self._require_account(account_id)
+    async def get_transactions(self, caller_id: UUID, account_id: UUID) -> list[Transaction]:
+        self._require_owner(await self._require_account(account_id), caller_id)
         result = await self._session.execute(
             select(Transaction)
             .where(Transaction.account_id == account_id)
@@ -321,6 +330,17 @@ class AccountService:
     async def _get_transfer_fee_percent(self) -> Decimal:
         e = await self._session.get(Settings, _TRANSFER_FEE_KEY)
         return Decimal(e.value) if e else Decimal("0")
+
+    @staticmethod
+    def _require_owner(account: Account, caller_id: UUID) -> None:
+        """The caller must own the account. See AyvalikBankHA-JAVA Refactorings.md entry 3."""
+        if account.owner_id != caller_id:
+            raise UnauthorizedAccessException("Account does not belong to the caller")
+
+    @staticmethod
+    def _require_self(subject: UUID, caller_id: UUID) -> None:
+        if subject != caller_id:
+            raise UnauthorizedAccessException("Callers may only act on their own customer record")
 
     async def _require_account(self, account_id: UUID) -> Account:
         a = await self._session.get(Account, account_id)

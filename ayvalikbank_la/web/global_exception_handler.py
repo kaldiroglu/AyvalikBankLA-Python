@@ -12,6 +12,7 @@ from ..exception import (
     NotFoundException,
     PasswordReuseException,
     PasswordValidationException,
+    UnauthorizedAccessException,
 )
 
 
@@ -26,6 +27,10 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(NotFoundException)
     async def _nf(req: Request, exc: NotFoundException):
         return _problem(404, "Not Found", str(exc))
+
+    @app.exception_handler(UnauthorizedAccessException)
+    async def _forbidden(req: Request, exc: UnauthorizedAccessException) -> JSONResponse:
+        return _problem(403, "Forbidden", str(exc))
 
     @app.exception_handler(InvalidCredentialsException)
     async def _ic(req: Request, exc: InvalidCredentialsException):

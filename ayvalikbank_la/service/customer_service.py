@@ -7,6 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..exception import (
+    UnauthorizedAccessException,
     InvalidCredentialsException,
     NotFoundException,
     PasswordReuseException,
@@ -62,7 +63,10 @@ class CustomerService:
         result = await self._session.execute(select(Customer))
         return list(result.scalars().all())
 
-    async def change_password(self, customer_id: UUID, new_password: str) -> None:
+    async def change_password(self, caller_id: UUID, customer_id: UUID, new_password: str) -> None:
+        # Checked BEFORE the lookup so a caller cannot probe which customer ids exist.
+        if customer_id != caller_id:
+            raise UnauthorizedAccessException("Callers may only change their own password")
         self._validator.validate(new_password)
         c = await self._session.get(Customer, customer_id)
         if c is None:

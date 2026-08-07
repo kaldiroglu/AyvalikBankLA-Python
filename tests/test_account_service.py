@@ -72,7 +72,7 @@ async def test_deposit_on_time_deposit_rejected(session):
     maturity = datetime.now(timezone.utc).date() + timedelta(days=365)
     a = await svc.create_time_deposit(cid, Currency.USD, Decimal("1000"), maturity, Decimal("0.05"))
     with pytest.raises(InvalidAccountOperationException, match="locked"):
-        await svc.deposit(a.id, Decimal("100"), Currency.USD)
+        await svc.deposit(a.owner_id, a.id, Decimal("100"), Currency.USD)
 
 
 @pytest.mark.asyncio
@@ -83,7 +83,7 @@ async def test_rejects_transfer_from_time_deposit(session):
     src = await svc.create_time_deposit(cid, Currency.USD, Decimal("1000"), maturity, Decimal("0.05"))
     tgt = await svc.create_checking(cid, Currency.USD, Decimal("0"))
     with pytest.raises(InvalidAccountOperationException, match="do not support"):
-        await svc.transfer(src.id, tgt.id, Decimal("100"), Currency.USD)
+        await svc.transfer(src.owner_id, src.id, tgt.id, Decimal("100"), Currency.USD)
 
 
 @pytest.mark.asyncio
@@ -91,8 +91,8 @@ async def test_checking_allows_withdraw_into_overdraft(session):
     svc = AccountService(session, TransferService())
     cid = await _add_customer(session)
     a = await svc.create_checking(cid, Currency.USD, Decimal("200"))
-    await svc.deposit(a.id, Decimal("100"), Currency.USD)
-    await svc.withdraw(a.id, Decimal("250"), Currency.USD)
+    await svc.deposit(a.owner_id, a.id, Decimal("100"), Currency.USD)
+    await svc.withdraw(a.owner_id, a.id, Decimal("250"), Currency.USD)
     assert a.balance == Decimal("-150")
 
 
@@ -102,7 +102,7 @@ async def test_rejects_withdraw_beyond_checking_overdraft(session):
     cid = await _add_customer(session)
     a = await svc.create_checking(cid, Currency.USD, Decimal("100"))
     with pytest.raises(InsufficientFundsException, match="overdraft"):
-        await svc.withdraw(a.id, Decimal("101"), Currency.USD)
+        await svc.withdraw(a.owner_id, a.id, Decimal("101"), Currency.USD)
 
 
 @pytest.mark.asyncio
@@ -110,9 +110,9 @@ async def test_rejects_withdraw_above_standard_cap(session):
     svc = AccountService(session, TransferService())
     cid = await _add_customer(session)  # STANDARD
     a = await svc.create_checking(cid, Currency.USD, Decimal("0"))
-    await svc.deposit(a.id, Decimal("10000"), Currency.USD)
+    await svc.deposit(a.owner_id, a.id, Decimal("10000"), Currency.USD)
     with pytest.raises(LimitExceededException, match="5000"):
-        await svc.withdraw(a.id, Decimal("5001"), Currency.USD)
+        await svc.withdraw(a.owner_id, a.id, Decimal("5001"), Currency.USD)
 
 
 @pytest.mark.asyncio
@@ -122,9 +122,9 @@ async def test_premium_halves_transfer_fee(session):
     tgt_owner = await _add_customer(session, tier="STANDARD")
     src = await svc.create_checking(src_owner, Currency.USD, Decimal("0"))
     tgt = await svc.create_checking(tgt_owner, Currency.USD, Decimal("0"))
-    await svc.deposit(src.id, Decimal("1000"), Currency.USD)
+    await svc.deposit(src.owner_id, src.id, Decimal("1000"), Currency.USD)
     await svc.set_transfer_fee_percent(Decimal("2"))  # 2%
-    await svc.transfer(src.id, tgt.id, Decimal("200"), Currency.USD)
+    await svc.transfer(src.owner_id, src.id, tgt.id, Decimal("200"), Currency.USD)
     # standard would charge 2% = 4; premium halves it = 2
     # source debited 200 + 2 = 202, started at 1000, now 798
     assert src.balance == Decimal("798.00")
@@ -136,7 +136,7 @@ async def test_accrue_interest_on_savings_credits_expected(session):
     svc = AccountService(session, TransferService())
     cid = await _add_customer(session)
     a = await svc.create_savings(cid, Currency.USD, Decimal("0.12"))
-    await svc.deposit(a.id, Decimal("1000"), Currency.USD)
+    await svc.deposit(a.owner_id, a.id, Decimal("1000"), Currency.USD)
     tx = await svc.accrue_interest(a.id, 2026, 4)
     # 12% / 12 = 1% monthly → 10 on 1000
     assert tx.amount == Decimal("10.00")
