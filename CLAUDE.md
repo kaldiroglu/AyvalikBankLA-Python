@@ -22,15 +22,15 @@ the change belongs in all six.
 ```bash
 # Browsable API docs once the app is running: /docs
 # Shared contract suite (from AyvalikBankContractTests):
-#   BANK_BASE_URL=http://localhost:8000 pytest tests/
+#   BANK_BASE_URL=http://localhost:8001 pytest tests/
 
 docker compose up -d                                     # Postgres on port 5435
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/pytest -q                                      # all 28 tests
-.venv/bin/uvicorn ayvalikbank_la.main:app --reload
+.venv/bin/uvicorn ayvalikbank_la.main:app --port 8001 --reload
 
-# Run without Docker (uvicorn defaults to port 8000)
-DATABASE_URL="sqlite+aiosqlite:///./dev.db" .venv/bin/uvicorn ayvalikbank_la.main:app
+# Run without Docker. --port 8001 keeps this off HA-Python's 8000.
+DATABASE_URL="sqlite+aiosqlite:///./dev.db" .venv/bin/uvicorn ayvalikbank_la.main:app --port 8001
 ```
 
 ## Environment gotchas
