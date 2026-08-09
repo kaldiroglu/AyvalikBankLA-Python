@@ -6,14 +6,39 @@ Guidance for Claude Code when working in this repository.
 
 **Ayvalık Bank LA-Python** — Python 3.12+ / FastAPI / SQLAlchemy 2.0 (async) port of `AyvalikBankLA-JAVA` (the Java/Spring Boot layered project) and `AyvalikBankLA-NET` (the .NET port). Identical use cases, same 3-tier / anemic-model / fat-service style.
 
+## Cross-repository invariants
+
+This repo is one of six (hexagonal + layered × Java/.NET/Python) that must stay **functionally
+identical**. `AyvalikBankContractTests` is one black-box HTTP suite run against all six, and CI runs
+it on every push. Before changing any endpoint, status code, field name or JSON shape, check whether
+the change belongs in all six.
+
+- Wire format is **camelCase**; validation failures are **400** (not FastAPI's default 422).
+- Enums travel as **strings** (`"USD"`), never numbers.
+- Refactoring write-ups live in `Refactorings.md`; the Java hexagonal repo is the reference.
+
 ## Commands
 
 ```bash
+# Browsable API docs once the app is running: /docs
+# Shared contract suite (from AyvalikBankContractTests):
+#   BANK_BASE_URL=http://localhost:8000 pytest tests/
+
 docker compose up -d                                     # Postgres on port 5435
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/pytest -q                                      # all 28 tests
 .venv/bin/uvicorn ayvalikbank_la.main:app --reload
+
+# Run without Docker (uvicorn defaults to port 8000)
+DATABASE_URL="sqlite+aiosqlite:///./dev.db" .venv/bin/uvicorn ayvalikbank_la.main:app
 ```
+
+## Environment gotchas
+
+- **The venv hardcodes an absolute interpreter path** — moving the repo breaks it. Recreate with
+  `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"`.
+- **`from __future__ import annotations` hides missing imports** until something resolves the
+  annotation. A missing port import passed every test and CI, and only broke `/openapi.json`.
 
 ## Architecture
 
@@ -27,6 +52,12 @@ model/           — anemic SQLAlchemy entities + enums
 exception/       — typed exception classes
 config/          — BcryptHasher, admin_seeder
 ```
+
+## Design Decisions (2026-08 hardening pass)
+
+- **Ownership authorization**: every customer-facing service method takes the caller's id, taken from the authenticated principal — never from a route or query parameter. Transfers check the **source only**; the target is deliberately unchecked. Opening an account takes no owner id: the caller is the owner. See `Refactorings.md`.
+- **Optimistic locking**: accounts carry a version token. A conflict surfaces at commit and maps to HTTP 409.
+- **Three hexagonal refactorings deliberately do not apply here** — `TransactionAmount` (no `Money` value object), actor-shaped ports (layered has no ports) and the domain refusal vocabulary (no domain/application seam to translate across). They are artifacts of the hexagonal boundary; see `Refactorings.md`.
 
 ## Key Decisions (preserved from the Java sibling)
 
