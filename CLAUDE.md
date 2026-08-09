@@ -24,7 +24,7 @@ the change belongs in all six.
 # Shared contract suite (from AyvalikBankContractTests):
 #   BANK_BASE_URL=http://localhost:8001 pytest tests/
 
-docker compose up -d                                     # Postgres on port 5435
+docker compose up -d                                     # Postgres on port 5435, database ayvalikbank_la_python
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/pytest -q                                      # all 28 tests
 .venv/bin/uvicorn ayvalikbank_la.main:app --port 8001 --reload

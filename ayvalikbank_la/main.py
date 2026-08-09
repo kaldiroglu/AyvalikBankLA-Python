@@ -19,7 +19,7 @@ from .web import (
 )
 from .web.deps import get_account_service, get_customer_service
 
-DEFAULT_DB_URL = "postgresql+asyncpg://bank:bank@localhost:5435/ayvalikbank"
+DEFAULT_DB_URL = "postgresql+asyncpg://bank:bank@localhost:5435/ayvalikbank_la_python"
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
